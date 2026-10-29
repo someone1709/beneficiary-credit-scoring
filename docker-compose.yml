@@ -1,0 +1,65 @@
+# =============================================================================
+# Beneficiary Credit Scoring — Docker Compose
+# Services: MySQL 8 + Spring Boot backend
+# React (port 5173) and FastAPI (port 8000) run locally, NOT in Docker.
+# =============================================================================
+
+services:
+
+  # ── MySQL 8 ────────────────────────────────────────────────────────────────
+  mysql_db:
+    image: mysql:8.0
+    container_name: credit_scoring_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: ${DB_NAME:-credit_scoring}
+      MYSQL_USER: ${DB_USER:-credituser}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-creditpass}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost",
+             "-u", "${DB_USER:-credituser}",
+             "-p${DB_PASSWORD:-creditpass}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ── Spring Boot Backend ────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: credit_scoring_backend
+    restart: unless-stopped
+    depends_on:
+      mysql_db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql_db:3306/credit_scoring?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-credituser}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-creditpass}
+      # ML service runs locally; host.docker.internal resolves to the host machine
+      ML_SERVICE_URL: ${ML_SERVICE_URL_DOCKER:-http://host.docker.internal:8000}
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "8080:8080"
+    volumes:
+      - uploads_data:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+
+volumes:
+  mysql_data:
+    name: credit_scoring_mysql_data
+  uploads_data:
+    name: credit_scoring_uploads

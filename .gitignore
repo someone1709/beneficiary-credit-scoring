@@ -1,0 +1,33 @@
+# ── Git ignore rules ──────────────────────────────────────────────────────────
+# Never commit secrets or generated artifacts
+
+# Env files
+.env
+*.env.local
+
+# Uploads
+uploads/
+
+# Build artifacts
+backend/target/
+frontend/dist/
+frontend/node_modules/
+ml-service/__pycache__/
+ml-service/.venv/
+ml-service/models/*.pkl
+ml-service/data/*.csv
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
